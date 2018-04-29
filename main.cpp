@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <iomanip>
 
+#include "Node.h"
+
 bool isNumber(const std::vector<std::vector<std::string> >& s, const unsigned int column){
     try{
         for(unsigned int i=0; i<s.size(); i++)
@@ -95,44 +97,119 @@ std::vector<std::vector<std::string> > readCSVFile(char const *file){
     std::ifstream csvFile;
     csvFile.open(file, std::ifstream::in);
 
-    
 
-    //Read header to see which attributes exist
-    std::string header;
-    std::getline(csvFile, header);
-
-
-    
-    //Add atributes to vec by separating the string with delimiter ','
-    std::vector<std::string> attributes;
-    size_t last = 0;
-    size_t next = 0;
-    while((next = header.find(",", last)) != std::string::npos){
-        attributes.push_back(header.substr(last, next-last));
-        last = next + 1;
-    }
-    attributes.push_back(header.substr(last));
-
-    
 
     //Load everything in to a vector
+    std::string buffer;
     std::vector<std::vector<std::string> > examples;
 
-    while(std::getline(csvFile, header)){
+    while(std::getline(csvFile, buffer)){
         std::vector<std::string> aux;
         size_t last = 0;
         size_t next = 0;
-        while((next = header.find(",", last)) != std::string::npos){
-            aux.push_back(header.substr(last, next-last));
+        while((next = buffer.find(",", last)) != std::string::npos){
+            aux.push_back(buffer.substr(last, next-last));
             last = next + 1;
         }
-        aux.push_back(header.substr(last));
+        aux.push_back(buffer.substr(last));
 
         examples.push_back(aux);
     }
 
     return examples;
 }
+
+
+Node* ID3(std::vector<std::vector<unsigned int> >& examples, unsigned int targetAttribute, std::vector<unsigned int>& attributes){
+    Node* root = new Node();
+    root->setAttribute(targetAttribute);
+
+    if(examples.size() == 0){
+        root->setAttribute();
+    }
+
+    unsigned int index;
+    for(index=1; index<examples[examples.size()-1].size(); index++)
+        if(examples[examples.size()-1][index] != examples[examples.size()-1][index-1])
+            break;
+
+    if(index == examples[targetAttribute].size()){
+        root->setAttribute(examples[examples.size()-1][index-1]);
+        root->setLeaf();
+        return root;
+    }
+
+    if(attributes.size() == 0){
+        std::vector<unsigned int> auxIndex;
+        std::vector<unsigned int> auxCounter;
+        for(unsigned int i=0; i<examples[examples.size()-1].size(); i++){
+            if(std::find(auxIndex.begin(), auxIndex.end(), examples[examples.size()-1][i]) != auxIndex.end())
+                auxCounter[std::distance(auxIndex.begin(), std::find(auxIndex.begin(), auxIndex.end(), examples[examples.size()-1][i]))]++;
+            else{
+                auxIndex.push_back(examples[examples.size()-1][i]);
+                auxCounter.push_back(0);
+            }
+        }
+
+        unsigned int max = 0;
+        for(unsigned int i=1; i<auxCounter.size(); i++)
+            if(auxCounter[i] > auxCounter[max])
+                max = i;
+
+
+        root->setAttribute(auxIndex[max]);
+        root->setLeaf();
+        return root;
+    }
+
+    unsigned int bestAttribute = chooseAttribute(examples, attributes);
+
+    std::vector<unsigned int> auxIndex;
+    for(unsigned int i=0; i<examples[targetAttribute].size(); i++)
+        if(std::find(auxIndex.begin(), auxIndex.end(), examples[targetAttribute][i]) == auxIndex.end())
+            auxIndex.push_back(std::distance(auxIndex.begin(), std::find(auxIndex.begin(), auxIndex.end(), examples[targetAttribute][i])));
+
+    for(unsigned int i=0; i<auxIndex.size(); i++){
+        std::vector<std::vector<unsigned int> > examplesVi;
+        for(unsigned int j=0; j<examples[bestAttribute].size(); j++){
+            if(examples[bestAttribute][j] == auxIndex[i]){
+                std::vector<unsigned int> aux;
+                for(unsigned int k=0; k<examples.size(); k++)
+                    aux.push_back(examples[k][j]);
+
+                examplesVi.push_back(aux);
+
+            }
+        }
+
+        if(examplesVi.size() == 0){
+            root->insertChild(auxIndex[max]);
+            root->setLeaf();
+            continue;
+        }
+    }
+
+}
+
+
+Else
+A = Attribute that best classifies examples
+Decision Tree attribute for Root = A
+For each possible value, vi, of A,
+Add a new tree branch below Root,
+corresponding to the test A = vi.
+Let Examples(vi) be the subset of examples that
+have the value vi for A
+If Examples(vi) is empty
+below this new branch add a leaf node with
+label = most common target value in the examples
+Else
+below this new branch add the subtree
+ID3 (Examples(vi), Target_Attribute, Attributes - {A})
+EndIf
+EndFor
+EndIf
+Return Root*/
 
 int main(int argc, char const *argv[]){
 
@@ -144,8 +221,15 @@ int main(int argc, char const *argv[]){
     //Load everything in to a vector
     std::vector<std::vector<std::string> > examples = readCSVFile(argv[1]);
 
+    std::vector<std::string> attributes = examples[0];
+    examples.erase(examples.begin(), examples.begin()+1);
+
     //Discretize values
     std::vector<std::vector<unsigned int> > examplesSimplified = discretizeAttributes(examples);
+
+    for(unsigned int i=0; i<attributes.size(); i++)
+        std::cout << std::setw(10) << attributes[i];
+    std::cout << std::endl;
 
 
     for(unsigned int i=0; i<examples.size(); i++){
@@ -155,8 +239,9 @@ int main(int argc, char const *argv[]){
     }
 
     for(unsigned int i=0; i<examplesSimplified[0].size(); i++){
+        std::cout << std::setw(10) << " ";
         for(unsigned int j=0; j<examplesSimplified.size(); j++)
-            std::cout << std::setw(5) << examplesSimplified[j][i];
+            std::cout << std::setw(10) << examplesSimplified[j][i];
         std::cout << std::endl;
     }
 
