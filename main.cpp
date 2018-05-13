@@ -49,7 +49,7 @@ double calculateEntropy(std::vector<std::vector<unsigned int> >& examples, std::
     double entropy = 0;
     std::vector<unsigned int> auxCounter;
     for(unsigned int i=0; i<allAttributes[allAttributes.size()-1].size(); i++)
-        auxCounter.push_back(0);
+        auxCounter.push_back(0u);
 
     for(unsigned int i=0; i<examples[0].size(); i++)
         auxCounter[examples[examples.size()-1][i]]++;
