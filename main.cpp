@@ -7,9 +7,11 @@
 #include <iomanip>
 #include <tuple>
 #include <cmath>
+#include <sstream>
 
 
 #include "Node.h"
+#include "Interval.h"
 
 bool isNumber(const std::vector<std::vector<std::string> >& s, const unsigned int column){
     try{
@@ -23,8 +25,8 @@ bool isNumber(const std::vector<std::vector<std::string> >& s, const unsigned in
     return true;
 }
 
-template<typename T, typename S>
-void shellSort(std::vector<S>& v, std::vector<std::vector<T> >& v2, std::vector<std::vector<S> >& v3, const unsigned int column){
+template<typename T, typename S, typename V>
+void shellSort(std::vector<T>& v, std::vector<std::vector<S> >& v2, std::vector<std::vector<V> >& v3, const unsigned int column){
     size_t size = v.size();
     size_t h = 1;
 
@@ -49,7 +51,7 @@ double calculateEntropy(std::vector<std::vector<unsigned int> >& examples, std::
     double entropy = 0;
     std::vector<unsigned int> auxCounter;
     for(unsigned int i=0; i<allAttributes[allAttributes.size()-1].size(); i++)
-        auxCounter.push_back(0u);
+        auxCounter.push_back(0);
 
     for(unsigned int i=0; i<examples[0].size(); i++)
         auxCounter[examples[examples.size()-1][i]]++;
@@ -58,7 +60,7 @@ double calculateEntropy(std::vector<std::vector<unsigned int> >& examples, std::
     for(unsigned int i=0; i<auxCounter.size(); i++){
         tmp = (double)auxCounter[i]/examples[0].size();
         if(tmp != 0)
-            entropy += tmp * log2(tmp);
+            entropy += tmp * std::log2(tmp);
     }
 
     return -entropy;
@@ -115,28 +117,60 @@ std::tuple<std::vector<std::vector<unsigned int> >, std::vector<std::vector<unsi
         
         //If field is made of numbers, then discretize the numbers
         if(isNumber(examples, i)){
+            std::vector<double> auxTmp;
 
             //Convert column to numbers
             for(unsigned int j=0; j<examples.size(); j++)
-                auxExamples.push_back(std::stod(examples[j][i]));
+                auxTmp.push_back(std::stod(examples[j][i]));
             
-            //https://www.youtube.com/watch?v=MK_dMsn4MqI
-            //10.0 so that it converts to double
-            double stepSize = auxExamples.size()/10.0;
-            shellSort(auxExamples, examples, examplesSimplified, i);
+            shellSort(auxTmp, examples, examplesSimplified, i);
 
-            unsigned int start = 0;
-            unsigned int last;
-            for(unsigned int j=0; j<10; j++){
-                last = (j+1)*stepSize;
+            unsigned int minGroupSize;
+            if(examples.size() > 0)
+                minGroupSize = (unsigned int)std::log2(examples.size());
+            else
+                minGroupSize = 0;
 
-                for(unsigned int k=start; k<last; k++)
-                    auxExamples[k] = j;
-                
+            
 
-                start = last;
+            unsigned int auxCounter = 1;
+            std::vector<double> intervals;
+            intervals.push_back(std::numeric_limits<double>::min());
+
+            bool different = true;
+            for(unsigned int j=0; j<examples.size()-1; j++){
+                if(j == examples.size()-1-1){
+                    if(auxCounter >= minGroupSize && different == false)
+                        intervals.push_back(auxTmp[j]);
+                    intervals.push_back(std::numeric_limits<double>::max());
+                }
+                else if(auxCounter >= minGroupSize && different == false){
+                    intervals.push_back(auxTmp[j]);
+                    auxCounter = 1;
+                    different = true;
+                }
+                else if(examples[j][examples[j].size()-1] == examples[j+1][examples[j+1].size()-1])
+                    auxCounter++;
+                else
+                    different = false;
+            }
+
+            unsigned int examplesIndex=0;
+            for(unsigned int j=0; j<intervals.size()-1; j++){
                 auxAttributes.push_back(j);
-                auxAttributesStrings.push_back(std::to_string(j));
+
+                Interval interval = Interval(intervals[j], intervals[j+1]);
+
+                auxAttributesStrings.push_back(interval.getString());
+
+                for(;examplesIndex<auxTmp.size(); examplesIndex++){
+                    if(j == intervals.size()-1-1)
+                        auxExamples.push_back(j);
+                    else if(auxTmp[examplesIndex] < intervals[j+1])
+                        auxExamples.push_back(j);
+                    else
+                        break;
+                }
             }
         }
         //If the field is made of strings, then modify them to numbers
@@ -294,9 +328,9 @@ void printTree(Node* root, std::vector<std::string>& header, std::vector<std::ve
             std::cout << "\t";
 
         if(children[i]->isLeaf() == true){
-            std::cout << allAttributesStrings[root->getAttribute()][childrenLabels[i]] << ": "
-                    << allAttributesStrings[allAttributesStrings.size()-1][children[i]->getAttribute()] 
-                    << " (" << children[i]->getCount() << ")" << std::endl;
+            std::cout << allAttributesStrings[root->getAttribute()][childrenLabels[i]] << ": ";
+            std::cout << allAttributesStrings[allAttributesStrings.size()-1][children[i]->getAttribute()];
+            std::cout << " (" << children[i]->getCount() << ")" << std::endl;
         }
         else{
             std::cout << allAttributesStrings[root->getAttribute()][childrenLabels[i]] << ": " << std::endl;
@@ -333,6 +367,12 @@ int main(int argc, char const *argv[]){
     Node* root = ID3(examplesSimplified, bestAttribute, attributes, allAttributes);
 
     printTree(root, header, allAttributesStrings, 0);
+
+    std::cout << std::endl << std::endl;
+    std::cout << "1 - Testar com um exemplo" << std::endl;
+    std::cout << "2 - Sair" << std::endl;
+
+    
 
     delete root;
 
