@@ -103,17 +103,19 @@ unsigned int chooseAttribute(std::vector<std::vector<unsigned int> >& examples, 
     return bestAttribute;
 }
 
-std::tuple<std::vector<std::vector<unsigned int> >, std::vector<std::vector<unsigned int> >, std::vector<std::vector<std::string> > > discretizeAttributes(std::vector<std::vector<std::string> >& examples){
+std::tuple<std::vector<std::vector<unsigned int> >, std::vector<std::vector<unsigned int> >, std::vector<std::vector<std::string> >, std::vector<std::vector<Interval*> > > discretizeAttributes(std::vector<std::vector<std::string> >& examples){
 
     //Change string to number and discretize numbers (http://id3alg.altervista.org/)
     std::vector<std::vector<unsigned int> > examplesSimplified;
     std::vector<std::vector<unsigned int> > allAttributes;
     std::vector<std::vector<std::string> > allAttributesStrings;
+    std::vector<std::vector<Interval*> > intervals;
     
     for(unsigned int i=1; i<examples[0].size(); i++){
         std::vector<unsigned int> auxExamples;
         std::vector<unsigned int> auxAttributes;
         std::vector<std::string> auxAttributesStrings;
+        std::vector<Interval*> auxIntervals;
         
         //If field is made of numbers, then discretize the numbers
         if(isNumber(examples, i)){
@@ -134,18 +136,18 @@ std::tuple<std::vector<std::vector<unsigned int> >, std::vector<std::vector<unsi
             
 
             unsigned int auxCounter = 1;
-            std::vector<double> intervals;
-            intervals.push_back(std::numeric_limits<double>::min());
+            std::vector<double> tmpIntervals;
+            tmpIntervals.push_back(std::numeric_limits<double>::min());
 
             bool different = true;
             for(unsigned int j=0; j<examples.size()-1; j++){
                 if(j == examples.size()-1-1){
                     if(auxCounter >= minGroupSize && different == false)
-                        intervals.push_back(auxTmp[j]);
-                    intervals.push_back(std::numeric_limits<double>::max());
+                        tmpIntervals.push_back(auxTmp[j]);
+                    tmpIntervals.push_back(std::numeric_limits<double>::max());
                 }
                 else if(auxCounter >= minGroupSize && different == false){
-                    intervals.push_back(auxTmp[j]);
+                    tmpIntervals.push_back(auxTmp[j]);
                     auxCounter = 1;
                     different = true;
                 }
@@ -156,17 +158,18 @@ std::tuple<std::vector<std::vector<unsigned int> >, std::vector<std::vector<unsi
             }
 
             unsigned int examplesIndex=0;
-            for(unsigned int j=0; j<intervals.size()-1; j++){
+            for(unsigned int j=0; j<tmpIntervals.size()-1; j++){
                 auxAttributes.push_back(j);
 
-                Interval interval = Interval(intervals[j], intervals[j+1]);
+                Interval* interval = new Interval(tmpIntervals[j], tmpIntervals[j+1]);
+                auxIntervals.push_back(interval);
 
-                auxAttributesStrings.push_back(interval.getString());
+                auxAttributesStrings.push_back(interval->getString());
 
                 for(;examplesIndex<auxTmp.size(); examplesIndex++){
-                    if(j == intervals.size()-1-1)
+                    if(j == tmpIntervals.size()-1-1)
                         auxExamples.push_back(j);
-                    else if(auxTmp[examplesIndex] < intervals[j+1])
+                    else if(auxTmp[examplesIndex] < tmpIntervals[j+1])
                         auxExamples.push_back(j);
                     else
                         break;
@@ -185,15 +188,17 @@ std::tuple<std::vector<std::vector<unsigned int> >, std::vector<std::vector<unsi
                     auxAttributesStrings.push_back(examples[j][i]);
                     auxIndex.push_back(examples[j][i]);
                 }
+                auxIntervals.push_back(NULL);
             }
         }
 
         examplesSimplified.push_back(auxExamples);
         allAttributes.push_back(auxAttributes);
         allAttributesStrings.push_back(auxAttributesStrings);
+        intervals.push_back(auxIntervals);
     }
 
-    return std::make_tuple(examplesSimplified, allAttributes, allAttributesStrings);
+    return std::make_tuple(examplesSimplified, allAttributes, allAttributesStrings, intervals);
 }
 
 std::vector<std::vector<std::string> > readCSVFile(char const *file){
@@ -353,10 +358,11 @@ int main(int argc, char const *argv[]){
     examples.erase(examples.begin(), examples.begin()+1);
 
     //Discretize values
-    std::tuple<std::vector<std::vector<unsigned int> >, std::vector<std::vector<unsigned int> >, std::vector<std::vector<std::string> > > tuple = discretizeAttributes(examples);
+    std::tuple<std::vector<std::vector<unsigned int> >, std::vector<std::vector<unsigned int> >, std::vector<std::vector<std::string> >, std::vector<std::vector<Interval*> > > tuple = discretizeAttributes(examples);
     std::vector<std::vector<unsigned int> > examplesSimplified = std::get<0>(tuple);
     std::vector<std::vector<unsigned int> > allAttributes = std::get<1>(tuple);
     std::vector<std::vector<std::string> > allAttributesStrings = std::get<2>(tuple);
+    std::vector<std::vector<Interval*> > intervals = std::get<3>(tuple);
     
     std::vector<unsigned int> attributes;
     for(unsigned int i=0; i<examplesSimplified.size()-1; i++)
@@ -364,7 +370,11 @@ int main(int argc, char const *argv[]){
 
     unsigned int bestAttribute = chooseAttribute(examplesSimplified, attributes, allAttributes);
     
+    clock_t clock1 = clock();
     Node* root = ID3(examplesSimplified, bestAttribute, attributes, allAttributes);
+    clock_t clock2 = clock();
+
+    std::cout << std::endl << std::endl << "Execution time of ID3: " << ((float)clock2-clock1)/CLOCKS_PER_SEC << " seconds" << std::endl << std::endl;
 
     printTree(root, header, allAttributesStrings, 0);
 
@@ -372,9 +382,59 @@ int main(int argc, char const *argv[]){
     std::cout << "1 - Testar com um exemplo" << std::endl;
     std::cout << "2 - Sair" << std::endl;
 
+    int choice;
+    std::cin >> choice;
+
+    clock1 = clock();
+    Node* oldRoot = root;
+    if(choice == 1){
+        std::vector<std::string> test;
+        std::vector<unsigned int> testSimplified;
+        for(unsigned int i=1; i<header.size()-1; i++){
+            std::string input;
+            std::cout << header[i] << ": ";
+            std::cin >> input;
+            test.push_back(input);
+        }
+        for(unsigned int i=0; i<test.size(); i++){
+            if(isNumber(examples, i+1)){
+                double tmp = std::stod(test[i]);
+                for(unsigned int j=0; j<intervals[i].size(); j++){
+                    if(intervals[i][j]->isInside(tmp)){
+                        testSimplified.push_back(j);
+                        break;
+                    }
+                }
+            }
+            else
+                testSimplified.push_back(std::distance(allAttributesStrings[i].begin(), std::find(allAttributesStrings[i].begin(), allAttributesStrings[i].end(), test[i])));
+        }
+
+        while(root->isLeaf() == false){
+            std::vector<unsigned int> childrenLabels = root->getChildrenLabels();
+            std::vector<Node *> children = root->getChildren();
+            
+            for(unsigned int i=0; i<children.size(); i++){
+                if(childrenLabels[i] == testSimplified[root->getAttribute()]){
+                    root = children[i];
+                    break;
+                }
+            }
+        }
+        clock2 = clock();
+
+        std::cout << std::endl << std::endl << "Search time: " << ((float)clock2-clock1)/CLOCKS_PER_SEC << " seconds" << std::endl << std::endl;
+
+        std::cout << std::endl << std::endl << header[header.size()-1] << ": " << allAttributesStrings[allAttributesStrings.size()-1][root->getAttribute()] << std::endl;
+    }
+
     
 
-    delete root;
+    delete oldRoot;
+    for(unsigned int i=0; i<intervals.size(); i++)
+        for(unsigned int j=0; j<intervals[i].size(); j++)
+            if(intervals[i][j]!=NULL)
+                delete intervals[i][j];
 
     return 0;
 }
