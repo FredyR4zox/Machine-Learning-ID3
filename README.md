@@ -1,4 +1,4 @@
-# Machine-Learning-ID3
+# Machine-Learning: ID3
 Fourth project for the subject Artificial Inteligence, which consisted in implementing the ID3 algorithm for generating decision trees and all the data structures needed to generate an efficient tree.
 This implementation has several functions to optimize the performance of the algorithm, by discretizing continuous values and converting strings to numbers for a faster comparation of values.
 Our implementation was in C++.
