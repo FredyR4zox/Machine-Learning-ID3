@@ -374,13 +374,15 @@ int main(int argc, char const *argv[]){
     Node* root = ID3(examplesSimplified, bestAttribute, attributes, allAttributes);
     clock_t clock2 = clock();
 
-    std::cout << std::endl << std::endl << "Execution time of ID3: " << ((float)clock2-clock1)/CLOCKS_PER_SEC << " seconds" << std::endl << std::endl;
+    std::cout << std::endl << "Execution time of ID3: " << ((float)clock2-clock1)/CLOCKS_PER_SEC << " seconds" << std::endl << std::endl;
 
+	std::cout << "Generated tree:" << std::endl;
     printTree(root, header, allAttributesStrings, 0);
 
     std::cout << std::endl << std::endl;
-    std::cout << "1 - Testar com um exemplo" << std::endl;
-    std::cout << "2 - Sair" << std::endl;
+    std::cout << "1 - Test with example" << std::endl;
+    std::cout << "2 - Exit" << std::endl;
+    std::cout << "Option: ";
 
     int choice;
     std::cin >> choice;
