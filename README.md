@@ -18,6 +18,7 @@ $ ./main <examples_file.csv>
 ### Files
 * main.cpp - Request input, call the ID3 algorithm and discretize continues values.
 * Node.h - Implementation of the tree nodes.
+* Interval.h - Data structure to represent an interval.
 * weather.csv, restaurant.csv, iris.csv - Files with examples to generate the decision tree.
 
 
